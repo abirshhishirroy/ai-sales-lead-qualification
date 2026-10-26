@@ -1,0 +1,17 @@
+services:
+  n8n-portfolio:
+    image: docker.n8n.io/n8nio/n8n:2.44.6
+    container_name: ai-sales-lead-n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5679:5678"
+    environment:
+      GENERIC_TIMEZONE: Asia/Dhaka
+      TZ: Asia/Dhaka
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+    volumes:
+      - portfolio_n8n_data:/home/node/.n8n
+
+volumes:
+  portfolio_n8n_data:
+    name: ai_sales_lead_n8n_data
