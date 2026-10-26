@@ -1,0 +1,677 @@
+{
+  "name": "AI Sales Lead Qualification copy",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "nFJndFXA5zjCTuudP",
+          "mode": "list",
+          "cachedResultName": "Google Search Results Scraper (apify/google-search-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/nFJndFXA5zjCTuudP/input"
+        },
+        "customBody": "={{\n  {\n    queries: $json[\"Search Question\"],\n    maxPagesPerQuery: Math.ceil(\n      Number($json[\"Maximum Results\"]) / 10\n    ),\n    resultsPerPage: 10,\n    requestedMaxResults: Number($json[\"Maximum Results\"])\n  }\n}}",
+        "timeout": {},
+        "maxTotalChargeUsd": {}
+      },
+      "id": "3e172afe-ef43-44fb-a0c9-e61a9447c3d3",
+      "name": "Apify - Search Leads",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        48
+      ],
+      "credentials": {
+        "apifyApi": {
+          "name": "Apify account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "lead_id",
+              "name": "lead_id",
+              "value": "={{ (($json.domain || $json.company_name || 'unknown') + '_' + ($json.website || '')).toLowerCase().replace(/^https?:\\/\\//, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "28e90690-7e28-423b-84d3-15d9424d908a",
+      "name": "Assign Lead IDs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        192,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fetch_source_lead_id",
+              "name": "fetch_source_lead_id",
+              "value": "={{ $json.lead_id }}",
+              "type": "string"
+            },
+            {
+              "id": "fetch_source_company_name",
+              "name": "fetch_source_company_name",
+              "value": "={{ $json.company_name }}",
+              "type": "string"
+            },
+            {
+              "id": "fetch_source_website",
+              "name": "fetch_source_website",
+              "value": "={{ $json.website }}",
+              "type": "string"
+            },
+            {
+              "id": "fetch_source_domain",
+              "name": "fetch_source_domain",
+              "value": "={{ $json.domain }}",
+              "type": "string"
+            },
+            {
+              "id": "fetch_source_description",
+              "name": "fetch_source_description",
+              "value": "={{ $json.description }}",
+              "type": "string"
+            },
+            {
+              "id": "fetch_source_source",
+              "name": "fetch_source_source",
+              "value": "={{ $json.source }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "47839589-b951-4b55-b14b-6ea73ed0bba5",
+      "name": "Prepare Fetch Target",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        416,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.website }}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text",
+              "outputPropertyName": "website_text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "b46fa0bc-0b85-4a9f-836d-3fc6a1e47937",
+      "name": "Fetch Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        640,
+        48
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "id": "5b730751-f81a-48cd-8b74-5fa676be0ad0",
+      "name": "Merge Original + Fetch",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1088,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"model\": \"openai/gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \n\"You are a strict B2B sales lead qualification analyst. Evaluate whether the target company is a plausible buyer of an AI customer support automation solution.\\n\\nUse only the supplied company information and website evidence. Never invent facts, customer volumes, purchasing intent, or business activities. Do not confuse the target company with other companies mentioned in its articles, search snippets, or website content.\\n\\nA blog post, comparison article, directory listing, or mention of AI customer support tools does not by itself prove buyer fit. Distinguish companies that may buy this solution from vendors selling competing solutions. Prioritize evidence about the target company's own business and customer-facing operations. An online presence alone is insufficient.\\n\\nScore the strength of the evidence from 0 to 100. Use qualified only when credible evidence supports a strong potential buyer fit. Use disqualified only when the evidence clearly establishes poor fit. Use review when the company's business, buyer fit, or available evidence is ambiguous, insufficient, contradictory, or mostly irrelevant HTML.\\n\\nReturn only a valid JSON object with exactly these fields: score (integer 0-100), decision (qualified, disqualified, or review), reasons (array of concise strings supported by the supplied evidence). Do not include Markdown or extra fields.\\n\\n- Do not infer that a company is a competitor merely because it publishes articles reviewing, comparing, or recommending competing products.\\n\\n- Before classifying a company as a direct competitor, require evidence that the target company itself offers or sells a competing product or service.\\n\\n- If the website mainly contains educational content, product comparisons, or marketing articles and the company's actual business model is unclear, choose review.\\n\\n- Do not disqualify a company solely because the supplied excerpt fails to prove that it needs customer support automation.\\n\\n- A score of 0 should be reserved for cases where the evidence supports an exceptionally poor buyer fit. Ambiguous evidence should normally receive review and a middle-range score.\\n\\nPOTENTIAL BUYER FIT VS. BUYING INTENT:\\n\\n- The target customers are property management companies that could benefit from AI-powered customer support automation.\\n\\n- Do not require explicit evidence that a company is currently seeking, purchasing, or planning to purchase AI.\\n\\n- If the website confirms that the company manages residential rental properties and provides services to tenants, residents, landlords, or property owners, treat it as a plausible potential buyer.\\n\\n- Customer-facing activities such as maintenance requests, resident FAQs, leasing inquiries, rent-related questions, and tenant communication are relevant indicators of potential automation use cases.\\n\\n- When the company clearly fits the target customer profile but its support volume, pain points, or purchasing intent are unknown, prefer qualified if the evidence supports a reasonable potential buyer fit. Explain that buying intent is unconfirmed.\\n\\n- Use review when the company's business model, target customer fit, or relevance remains genuinely unclear.\\n\\n- Use disqualified when evidence indicates that the company is a direct competitor or clearly outside the target market.\\n\\n- Never claim that a company has high support volume, an urgent problem, or active buying intent unless the website provides evidence.\\n\\nSCORING AND DECISION CONSISTENCY:\\n- qualified: Normally score 80-100 when strong evidence supports potential buyer fit.\\n- disqualified: Normally score 0-19 when evidence establishes a direct competitor or clearly poor buyer fit.\\n- review: Normally score 40-59 when evidence is ambiguous, insufficient, contradictory, or does not establish the company's business model.\\n- Do not assign a score of 0 merely because evidence is missing.\\n- The score and decision must agree with the supplied evidence.\\n- If the company\u2019s business model is unclear, prefer review over an unsupported qualified or disqualified decision.\"\n\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Qualify this lead...\\nCompany: \" + JSON.stringify($json.company_name || \"\") + \"\\nWebsite: \" + JSON.stringify($json.website || \"\") + \"\\nDescription: \" + JSON.stringify($json.description || \"\") + \"\\nEvidence: \" + JSON.stringify(($json.website_text_excerpt || \"\").substring(0, 2000))\n    }\n  ],\n  \"response_format\": {\"type\": \"json_object\"}\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "52aa19cc-a481-401e-a857-6d29055d545c",
+      "name": "Qualify Lead with AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1776,
+        -192
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "name": "OpenRouter account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\nconst ALLOWED = ['qualified', 'disqualified', 'review'];\n\nfunction getErrorMessage(j) {\n  const err = j.error;\n  if (!err) return null;\n  if (typeof err === 'string') return err;\n  if (typeof err.message === 'string') return err.message;\n\n  try {\n    return JSON.stringify(err);\n  } catch {\n    return 'AI request failed';\n  }\n}\n\nreturn items.map((item, index) => {\n  const response = item.json || {};\n\n  let original = {};\n  let linkError = null;\n\n  try {\n    original = $('Check Fetch Evidence Usable').itemMatching(index).json || {};\n  } catch (e) {\n    linkError = 'Could not recover the original lead through item linking';\n  }\n\n  let parsed = null;\n  let aiError = getErrorMessage(response);\n\n  if (aiError) {\n    aiError = 'AI request failed: ' + aiError;\n  } else {\n    const content =\n      response.choices?.[0]?.message?.content;\n\n    if (typeof content !== 'string' || !content.trim()) {\n      aiError = 'AI response missing message content';\n    } else {\n      try {\n        const cleaned = content\n          .replace(/^```(?:json)?\\s*/i, '')\n          .replace(/\\s*```$/, '')\n          .trim();\n\n        parsed = JSON.parse(cleaned);\n      } catch {\n        aiError = 'AI response was not valid JSON';\n      }\n    }\n  }\n\n  let score = null;\n  let decision = 'review';\n  let reasons = ['AI qualification unavailable'];\n\n  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {\n    if (\n      typeof parsed.score === 'number' &&\n      Number.isFinite(parsed.score) &&\n      parsed.score >= 0 &&\n      parsed.score <= 100\n    ) {\n      score = parsed.score;\n    } else {\n      aiError = aiError || 'AI response had a missing or invalid score';\n    }\n\n    if (ALLOWED.includes(parsed.decision)) {\n      decision = parsed.decision;\n    } else {\n      aiError = aiError || 'AI response had an invalid decision';\n    }\n\n    if (Array.isArray(parsed.reasons) && parsed.reasons.length > 0) {\n      reasons = parsed.reasons.map(String);\n    } else {\n      aiError = aiError || 'AI response missing reasons';\n      reasons = [aiError];\n    }\n  } else {\n    aiError = aiError || 'AI response was not a valid JSON object';\n  }\n\n  if (aiError) {\n    decision = 'review';\n    score = null;\n    reasons = [aiError, ...reasons.filter(r => r !== aiError)];\n  }\n\n  return {\n    json: {\n      ...original,\n      ai_called: true,\n      qualification_score: aiError ? null : score,\n      decision,\n      reasons,\n      ai_error: aiError,\n      ...(linkError ? { data_link_error: linkError } : {}),\n    },\n    pairedItem: { item: index },\n  };\n});\n"
+      },
+      "id": "85a5ce7a-7aa1-4115-aa90-c5a71168e0a0",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai_called",
+              "name": "ai_called",
+              "value": "false",
+              "type": "boolean"
+            },
+            {
+              "id": "decision",
+              "name": "decision",
+              "value": "review",
+              "type": "string"
+            },
+            {
+              "id": "reasons",
+              "name": "reasons",
+              "value": "={{ [$json.website_fetch_error ? 'Website fetch failed: ' + $json.website_fetch_error : 'Insufficient website evidence for AI qualification'] }}",
+              "type": "array"
+            },
+            {
+              "id": "qualification_score",
+              "name": "qualification_score",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "ai_error",
+              "name": "ai_error",
+              "value": "Insufficient website evidence; AI qualification skipped",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "803e4d25-48f6-4902-88a8-7cc5a0f86361",
+      "name": "Handle No AI Evidence",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1760,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\nconst MAX_EXCERPT = 4000;\n\nfunction toMessage(value) {\n  if (!value) return '';\n  if (typeof value === 'string') return value;\n  if (typeof value.message === 'string') return value.message;\n  try {\n    return JSON.stringify(value);\n  } catch (e) {\n    return String(value);\n  }\n}\n\n// Convert raw HTML into more readable text.\nfunction cleanHtml(html) {\n  return html\n    // Remove blocks that usually contain code or non-content.\n    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script\\s*>/gi, ' ')\n    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style\\s*>/gi, ' ')\n    .replace(/<noscript\\b[^>]*>[\\s\\S]*?<\\/noscript\\s*>/gi, ' ')\n    .replace(/<svg\\b[^>]*>[\\s\\S]*?<\\/svg\\s*>/gi, ' ')\n    .replace(/<!--[\\s\\S]*?-->/g, ' ')\n\n    // Add boundaries around common block elements.\n    .replace(/<\\/(p|div|section|article|main|header|footer|nav|h[1-6]|li|tr|br|hr)\\s*>/gi, '\\n')\n    .replace(/<br\\b[^>]*>/gi, '\\n')\n\n    // Remove remaining HTML tags.\n    .replace(/<[^>]*>/g, ' ')\n\n    // Decode common HTML entities.\n    .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')\n    .replace(/&amp;/gi, '&')\n    .replace(/&quot;|&#34;/gi, '\"')\n    .replace(/&apos;|&#39;|&#x27;/gi, \"'\")\n    .replace(/&lt;/gi, '<')\n    .replace(/&gt;/gi, '>')\n    .replace(/&#(\\d+);/g, (match, code) => {\n      const n = Number(code);\n      return n > 0 && n <= 0x10FFFF\n        ? String.fromCodePoint(n)\n        : ' ';\n    })\n    .replace(/&#x([0-9a-f]+);/gi, (match, code) => {\n      const n = parseInt(code, 16);\n      return n > 0 && n <= 0x10FFFF\n        ? String.fromCodePoint(n)\n        : ' ';\n    })\n\n    // Normalize whitespace.\n    .replace(/\\r/g, '\\n')\n    .replace(/[ \\t\\f\\v]+/g, ' ')\n    .replace(/ *\\n */g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n}\n\nreturn items.map((item) => {\n  const j = item.json || {};\n  const text = typeof j.website_text === 'string'\n    ? j.website_text\n    : '';\n\n  const statusCode = typeof j.statusCode === 'number'\n    ? j.statusCode\n    : null;\n\n  const errorMessage = toMessage(j.error);\n  const detailMessage = toMessage(\n    j.details && (j.details.message || j.details.errorCode)\n  );\n  const signal = (errorMessage + ' ' + detailMessage).toLowerCase();\n  const lowerText = text.toLowerCase();\n\n  let status;\n\n  if (errorMessage) {\n    status = signal.includes('timeout') ||\n      signal.includes('etimedout')\n      ? 'timeout'\n      : 'error';\n  } else if (statusCode === null) {\n    status = 'error';\n  } else if (statusCode < 200 || statusCode >= 300) {\n    status = 'http_error';\n  } else if (\n  /<title[^>]*>[^<]*(captcha|access denied|verify you are human|security check)[^<]*<\\/title>/i.test(text) ||\n  /id=[\"'](captcha|challenge-form)[\"']/i.test(text) ||\n  /class=[\"'][^\"']*(captcha-container|cf-challenge)[^\"']*[\"']/i.test(text)\n) {\n  status = 'captcha';\n  } else if (text.trim().length < 50) {\n    status = 'empty';\n  } else {\n    status = 'ok';\n  }\n\n  const cleanedText = cleanHtml(text);\n\n  return {\n    json: {\n      ...j,\n      website_fetch_status: status,\n      website_http_status: statusCode,\n      website_fetch_error: errorMessage || null,\n      website_text_excerpt: cleanedText.slice(0, MAX_EXCERPT),\n      website_text_length: cleanedText.length,\n    },\n  };\n});\n"
+      },
+      "id": "f53601fa-7063-42f9-9cc5-83fd8e21ac9e",
+      "name": "Classify Fetch Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst ALLOWED = ['qualified', 'disqualified', 'review'];\n\nreturn items.map((item) => {\n  const j = item.json || {};\n  const excerpt = typeof j.website_text_excerpt === 'string' ? j.website_text_excerpt : '';\n  const score = typeof j.qualification_score === 'number' ? j.qualification_score : null;\n\n  return {\n    json: {\n      lead_id: j.lead_id ?? null,\n      company_name: j.company_name ?? null,\n      website: j.website ?? null,\n      domain: j.domain ?? null,\n      description: typeof j.description === 'string' ? j.description : '',\n      source: j.source ?? null,\n      source_query: j.source_query ?? null,\n      source_url: j.source_url ?? null,\n      source_title: j.source_title ?? null,\n      source_position: j.source_position ?? null,\n      website_fetch_status: j.website_fetch_status ?? 'unknown',\n      website_http_status: j.website_http_status ?? null,\n      website_fetch_error: j.website_fetch_error ?? null,\n      website_text_length: typeof j.website_text_length === 'number' ? j.website_text_length : excerpt.length,\n      website_text_excerpt: excerpt,\n      evidence_summary: excerpt.slice(0, 200),\n      ai_called: j.ai_called === true,\n      decision: ALLOWED.includes(j.decision) ? j.decision : 'review',\n      qualification_score: score,\n      reasons: Array.isArray(j.reasons) ? j.reasons.map((reason) => String(reason)) : [],\n      ai_error: j.ai_error ?? null,\n      finalized_at: new Date().toISOString(),\n    },\n  };\n});\n"
+      },
+      "id": "57032cdb-b9d5-47d7-9dda-702b09440a67",
+      "name": "Finalize Lead Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\nconst seenDomains = new Set();\nconst output = [];\n\nfor (const item of items) {\n  const results = item.json.organicResults || [];\n\n  for (const result of results) {\n    const website = result.url || \"\";\n    const match = website.match(/^https?:\\/\\/([^/:?#]+)/i);\n\n    if (!match) continue;\n\n    const domain = match[1]\n      .replace(/^www\\./i, \"\")\n      .toLowerCase();\n\n    if (!domain || seenDomains.has(domain)) continue;\n    seenDomains.add(domain);\n\n    const title =\n      result.websiteTitle || result.title || \"\";\n\n    output.push({\n      json: {\n        company_name: title || domain,\n        website,\n        domain,\n        description: result.description || \"\",\n        source: \"google_search\",\n        source_query: item.json.searchQuery?.term || \"\",\n        source_url: website,\n        source_title: result.title || title,\n        source_position: result.position ?? null,\n      },\n    });\n  }\n}\n\nif (output.length === 0) {\n  return [{\n    json: {\n      diagnostic: true,\n      inputCount: items.length,\n      resultCounts: items.map(\n        item => item.json.organicResults?.length ?? 0\n      ),\n      message: \"No normalized records were produced.\"\n    }\n  }];\n}\n\nreturn output;\n"
+      },
+      "id": "dd66b916-2b58-46f1-85b0-b02560fd7548",
+      "name": "Normalize Search Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "40d9a123-da16-4584-b233-2df6db0c10b0",
+              "leftValue": "={{ $json.company_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f1da1b74-9b68-437b-8a0f-3f690d77638f",
+              "leftValue": "={{ $json.website }}",
+              "rightValue": "^https?://.+",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "4b99da13-3d34-495d-b85a-8e9a0251042a",
+              "leftValue": "={{ $json.domain || \"\" }}",
+              "rightValue": "investopedia.com",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "af534d61-583e-4087-86bc-0d59412d396e",
+              "leftValue": "={{ $json.domain }}",
+              "rightValue": "=yelp.com",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "56f48141-7782-4a58-829a-896639fffb66",
+              "leftValue": "={{ $json.domain }}",
+              "rightValue": "facebook.com",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "06328660-bae9-4859-80fd-2d5548bfbebb",
+              "leftValue": "={{ $json.domain }}",
+              "rightValue": "instagram.com",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "4851cbce-65dc-4822-b3b1-4f5215acfb75",
+              "leftValue": "={{ $json.domain }}",
+              "rightValue": "/blog/",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "342e468a-292d-4ea1-965d-31835581e483",
+              "leftValue": "={{ $json.domain}}",
+              "rightValue": "/knowledge-center/",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.4,
+      "position": [
+        -32,
+        48
+      ],
+      "id": "eb02e316-3c4a-4699-8345-7ec6392eca6a",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2176,
+        -192
+      ],
+      "id": "0deb2b50-7ba0-4339-ac3f-f4e765696f62",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "dad6c440-1592-41da-988b-347231704fbb",
+              "leftValue": "={{ $json.website_fetch_status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "4f6b8293-6a84-4669-b07d-03af3d3fd9a3",
+              "leftValue": "={{ Number($json.website_text_length) }}",
+              "rightValue": 100,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "db941c12-9778-4a7f-9768-f28ae52914dc",
+              "leftValue": "={{ $json.website_text_excerpt }}",
+              "rightValue": "AwsWafIntegration",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1536,
+        -32
+      ],
+      "id": "f5e0218e-7638-40f7-9367-82330194e3d4",
+      "name": "Check Fetch Evidence Usable"
+    },
+    {
+      "parameters": {
+        "formTitle": "AI Sales Lead Finder",
+        "formDescription": "Find potential sales leads automatically. Enter your target companies and choose the maximum number of search results.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Search Question",
+              "placeholder": "Property management companies in Texas",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Maximum Results",
+              "defaultValue": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -704,
+        48
+      ],
+      "id": "384d7bf5-961c-4597-8cca-eed966002dd3",
+      "name": "On form submission",
+      "webhookId": "66f18bf3-f9b4-40ec-8510-acb9b6053f92"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Prepare Fetch Target": {
+      "main": [
+        [
+          {
+            "node": "Fetch Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualify Lead with AI": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website": {
+      "main": [
+        [
+          {
+            "node": "Merge Original + Fetch",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Original + Fetch": {
+      "main": [
+        [
+          {
+            "node": "Classify Fetch Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Fetch Result": {
+      "main": [
+        [
+          {
+            "node": "Check Fetch Evidence Usable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Handle No AI Evidence": {
+      "main": [
+        [
+          {
+            "node": "Finalize Lead Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Lead IDs": {
+      "main": [
+        [
+          {
+            "node": "Prepare Fetch Target",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Original + Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Search Leads": {
+      "main": [
+        [
+          {
+            "node": "Normalize Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Search Result": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Assign Lead IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Fetch Evidence Usable": {
+      "main": [
+        [
+          {
+            "node": "Qualify Lead with AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle No AI Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Finalize Lead Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Apify - Search Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}

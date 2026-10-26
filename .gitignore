@@ -1,0 +1,17 @@
+# Secrets and environment variables
+.env
+.env.*
+!.env.example
+
+# Local backups and databases
+backups/
+*.tar.gz
+*.sqlite
+*.db
+
+# Dependencies and OS files
+node_modules/
+.DS_Store
+
+# Local workflow backups
+workflow/*.backup.json

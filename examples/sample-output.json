@@ -1,0 +1,16 @@
+{
+  "source_position": 5,
+  "website_fetch_status": "ok",
+  "website_http_status": 200,
+  "website_text_length": 23167,
+  "ai_called": true,
+  "decision": "qualified",
+  "qualification_score": 85,
+  "reasons": [
+    "The company offers residential property management services, indicating involvement in managing rental properties.",
+    "The website lists services such as tenant screening and proactive risk management, which are relevant to customer support automation.",
+    "InvestPro Properties Inc. targets landlords and property owners, fitting the profile of potential buyers for AI customer support automation solutions."
+  ],
+  "ai_error": null,
+  "portfolio_note": "Actual workflow output, sanitized. The source page was a comparison article listing multiple property management companies, so the qualification decision requires further validation."
+}
